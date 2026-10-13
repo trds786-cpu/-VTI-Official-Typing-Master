@@ -25,13 +25,20 @@ export default function App() {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'practice' | 'lessons' | 'dashboard' | 'leaderboard'>('practice');
 
-  // Application state
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
-  const [trainees, setTrainees] = useState<TraineeProfile[]>([]);
-  const [activeTrainee, setActiveTrainee] = useState<TraineeProfile | null>(null);
-  const [sessionResults, setSessionResults] = useState<SessionResult[]>([]);
-  const [settings, setSettings] = useState<AppSettings>(storage.getSettings());
+  // Application state initialized directly from local storage
+  const [lessons, setLessons] = useState<Lesson[]>(() => storage.getAllLessons());
+  const [currentLesson, setCurrentLesson] = useState<Lesson | null>(() => {
+    const loaded = storage.getAllLessons();
+    return loaded[0] || null;
+  });
+  const [trainees, setTrainees] = useState<TraineeProfile[]>(() => storage.getTrainees());
+  const [activeTrainee, setActiveTrainee] = useState<TraineeProfile | null>(() => {
+    const list = storage.getTrainees();
+    const activeId = storage.getActiveTraineeId();
+    return list.find(t => t.id === activeId) || list[0] || null;
+  });
+  const [sessionResults, setSessionResults] = useState<SessionResult[]>(() => storage.getSessionResults());
+  const [settings, setSettings] = useState<AppSettings>(() => storage.getSettings());
 
   // Modals state
   const [showCustomLessonModal, setShowCustomLessonModal] = useState<boolean>(false);
@@ -40,7 +47,7 @@ export default function App() {
   const [showOfflineGuideModal, setShowOfflineGuideModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
 
-  // Initialize data from local storage
+  // Reload data from local storage
   const loadData = () => {
     const loadedLessons = storage.getAllLessons();
     setLessons(loadedLessons);
@@ -55,15 +62,8 @@ export default function App() {
     const loadedResults = storage.getSessionResults();
     setSessionResults(loadedResults);
 
-    // Default current lesson to first lesson if not set
-    if (!currentLesson && loadedLessons.length > 0) {
-      setCurrentLesson(loadedLessons[0]);
-    }
+    setCurrentLesson(prev => prev || loadedLessons[0] || null);
   };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   // Trainee selection
   const handleSelectTrainee = (id: string) => {
@@ -101,8 +101,10 @@ export default function App() {
   // Save session result
   const handleSaveResult = (result: SessionResult) => {
     storage.saveSessionResult(result);
-    // Reload state so dashboard and leaderboards reflect immediate changes
-    loadData();
+    // Asynchronously reload state so dashboard and leaderboards reflect immediate changes without render collision
+    setTimeout(() => {
+      loadData();
+    }, 0);
   };
 
   // Lesson actions

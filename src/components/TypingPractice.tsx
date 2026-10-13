@@ -67,18 +67,14 @@ export const TypingPractice: React.FC<Props> = ({
   const activeCharRef = useRef<HTMLSpanElement>(null);
 
   // Expand lesson content dynamically for long 2-60 minute sessions if needed
-  const [fullLessonText, setFullLessonText] = useState<string>(lesson.content);
-
-  useEffect(() => {
-    // If duration is long (e.g. 10m+), repeat lesson content with a separator to give abundant typing text
+  // Expand lesson content dynamically for long 2-60 minute sessions using useMemo
+  const fullLessonText = React.useMemo(() => {
     const repeats = Math.max(1, Math.ceil((selectedDuration / 60) * 1.5));
     if (repeats > 1) {
-      setFullLessonText(Array(repeats).fill(lesson.content).join('  '));
-    } else {
-      setFullLessonText(lesson.content);
+      return Array(repeats).fill(lesson.content).join('  ');
     }
-    resetPractice(selectedDuration);
-  }, [lesson, selectedDuration]);
+    return lesson.content;
+  }, [lesson.content, selectedDuration]);
 
   // Keep focus on input area
   const focusInput = () => {
@@ -88,7 +84,7 @@ export const TypingPractice: React.FC<Props> = ({
   };
 
   // Reset practice
-  const resetPractice = (duration: number = selectedDuration) => {
+  const resetPractice = useCallback((duration: number = selectedDuration) => {
     setIsRunning(false);
     setIsPaused(false);
     setIsFinished(false);
@@ -105,7 +101,12 @@ export const TypingPractice: React.FC<Props> = ({
     setCurrentAccuracy(100);
     setFinalResult(null);
     setTimeout(focusInput, 50);
-  };
+  }, [selectedDuration]);
+
+  // Reset when lesson ID changes
+  useEffect(() => {
+    resetPractice(selectedDuration);
+  }, [lesson.id, resetPractice, selectedDuration]);
 
   // Duration change handler
   const handleDurationSelect = (seconds: number) => {
@@ -136,43 +137,6 @@ export const TypingPractice: React.FC<Props> = ({
 
     return { grossWpm, netWpm, cpm, accuracy };
   }, []);
-
-  // Timer Tick
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    if (isRunning && !isPaused && !isFinished) {
-      interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            handleCompleteSession();
-            return 0;
-          }
-          return prev - 1;
-        });
-
-        setElapsedSeconds(prev => {
-          const nextElapsed = prev + 1;
-          const { grossWpm, netWpm, cpm, accuracy } = calculateMetrics(typedChars.length, errorCount, nextElapsed);
-          setCurrentGrossWpm(grossWpm);
-          setCurrentNetWpm(netWpm);
-          setCurrentCpm(cpm);
-          setCurrentAccuracy(accuracy);
-
-          // Record timeline sample every 2 seconds
-          if (nextElapsed % 2 === 0 || nextElapsed === 1) {
-            setTimeline(t => [...t, { timestamp: nextElapsed, wpm: netWpm, cpm, accuracy }]);
-          }
-
-          return nextElapsed;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRunning, isPaused, isFinished, typedChars.length, errorCount, calculateMetrics]);
 
   // Handle Session Completion
   const handleCompleteSession = useCallback(() => {
@@ -223,7 +187,11 @@ export const TypingPractice: React.FC<Props> = ({
     };
 
     setFinalResult(result);
-    onSaveResult(result);
+
+    // Asynchronously notify parent to avoid setState during render
+    setTimeout(() => {
+      onSaveResult(result);
+    }, 0);
 
     // Sound chime & celebratory confetti
     soundManager.playFinishChime(settings.volume);
@@ -253,12 +221,41 @@ export const TypingPractice: React.FC<Props> = ({
     settings.volume
   ]);
 
-  // Check if text is completely finished before timer expires
+  // Clean 1-second interval timer without nested state updaters
   useEffect(() => {
-    if (isRunning && typedChars.length >= fullLessonText.length && fullLessonText.length > 0) {
+    if (!isRunning || isPaused || isFinished) return;
+
+    const interval = setInterval(() => {
+      setTimeRemaining(prev => Math.max(0, prev - 1));
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRunning, isPaused, isFinished]);
+
+  // Compute live speed metrics whenever elapsedSeconds updates
+  useEffect(() => {
+    if (!isRunning || elapsedSeconds <= 0) return;
+
+    const { grossWpm, netWpm, cpm, accuracy } = calculateMetrics(typedChars.length, errorCount, elapsedSeconds);
+    setCurrentGrossWpm(grossWpm);
+    setCurrentNetWpm(netWpm);
+    setCurrentCpm(cpm);
+    setCurrentAccuracy(accuracy);
+
+    if (elapsedSeconds % 2 === 0 || elapsedSeconds === 1) {
+      setTimeline(t => [...t, { timestamp: elapsedSeconds, wpm: netWpm, cpm, accuracy }]);
+    }
+  }, [elapsedSeconds, isRunning, typedChars.length, errorCount, calculateMetrics]);
+
+  // Auto-complete when time runs out or text is finished
+  useEffect(() => {
+    if (!isRunning || isFinished) return;
+
+    if (timeRemaining <= 0 || (typedChars.length >= fullLessonText.length && fullLessonText.length > 0)) {
       handleCompleteSession();
     }
-  }, [typedChars.length, fullLessonText.length, isRunning, handleCompleteSession]);
+  }, [timeRemaining, typedChars.length, fullLessonText.length, isRunning, isFinished, handleCompleteSession]);
 
   // Auto-scroll to active character
   useEffect(() => {
