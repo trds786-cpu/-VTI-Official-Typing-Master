@@ -1,0 +1,6 @@
+{
+  "name": "VTI Official Typing Master for offline use",
+  "description": "Professional bilingual English and Urdu Typing Master with customizable lesson plans, real-time speed tracking analytics, trainee dashboard, competitive leaderboard, and 100% offline support for Windows 7 & 10.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

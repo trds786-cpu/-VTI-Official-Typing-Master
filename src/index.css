@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-urdu: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting', 'Nafees Nastaleeq', 'Noto Sans Arabic', Tahoma, sans-serif;
+    --font-mono-code: 'Fira Code', 'Consolas', 'Courier New', monospace;
+  }
+}
+
+.font-urdu {
+  font-family: var(--font-urdu);
+  line-height: 2.2;
+}
+
+.font-urdu-compact {
+  font-family: 'Noto Sans Arabic', 'Urdu Typesetting', 'Jameel Noori Nastaleeq', Tahoma, sans-serif;
+  line-height: 1.8;
+}
+
+.font-mono-typing {
+  font-family: var(--font-mono-code);
+}
+
+/* Custom scrollbars for desktop software feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Print Styles for VTI Official Typing Certificate */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .certificate-print-area {
+    width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 3px double #0f172a !important;
+  }
+}
